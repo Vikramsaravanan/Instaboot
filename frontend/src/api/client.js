@@ -11,9 +11,20 @@ const api = axios.create({
 });
 
 // ── Interceptors ──────────────────────────────────────────────────────────────
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
     const message =
       error.response?.data?.message ||
       error.message ||
@@ -96,3 +107,31 @@ export async function getDocuments() {
 }
 
 export default api;
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Register a new user.
+ * @param {{ name: string, email: string, password: string }} data
+ */
+export async function register(data) {
+  const response = await api.post('/auth/register', data);
+  return response.data;
+}
+
+/**
+ * Login with email + password.
+ * @param {{ email: string, password: string }} data
+ */
+export async function login(data) {
+  const response = await api.post('/auth/login', data);
+  return response.data;
+}
+
+/**
+ * Fetch the currently authenticated user from the token.
+ */
+export async function getMe() {
+  const response = await api.get('/auth/me');
+  return response.data;
+}

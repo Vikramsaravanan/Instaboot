@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Bot, FileText, Database, Clock, RefreshCw,
-  ChevronDown, ChevronRight, MessageSquare,
+  ChevronDown, ChevronRight, MessageSquare, LogOut, User, Plus,
 } from 'lucide-react';
 import { getDocuments, getSessions } from '../api/client';
 import FileUpload from './FileUpload';
@@ -24,15 +24,19 @@ function timeAgo(isoString) {
  * Sidebar – shows app title, document list, file upload, and session history.
  *
  * Props:
- *  - sessionId      : current session UUID
- *  - onNewSession   : () => void
+ *  - sessionId        : current session UUID
+ *  - onNewSession     : () => void
+ *  - onSelectSession  : (sessionId: string) => void   — switch to an existing session
+ *  - user             : { name, email } | null
+ *  - onLogout         : () => void
  */
-export default function Sidebar({ sessionId, onNewSession }) {
-  const [documents, setDocuments] = useState([]);
-  const [sessions, setSessions] = useState([]);
-  const [docsOpen, setDocsOpen] = useState(true);
-  const [sessionsOpen, setSessionsOpen] = useState(false);
+export default function Sidebar({ sessionId, onNewSession, onSelectSession, user, onLogout }) {
+  const [documents, setDocuments]     = useState([]);
+  const [sessions, setSessions]       = useState([]);
+  const [docsOpen, setDocsOpen]       = useState(true);
+  const [sessionsOpen, setSessionsOpen] = useState(true);
   const [loadingDocs, setLoadingDocs] = useState(false);
+  const [loadingSessions, setLoadingSessions] = useState(false);
 
   const loadDocuments = useCallback(async () => {
     setLoadingDocs(true);
@@ -47,24 +51,39 @@ export default function Sidebar({ sessionId, onNewSession }) {
   }, []);
 
   const loadSessions = useCallback(async () => {
+    setLoadingSessions(true);
     try {
       const data = await getSessions();
       setSessions(data.sessions || []);
     } catch {
       // Silently fail
+    } finally {
+      setLoadingSessions(false);
     }
   }, []);
 
+  // Initial load + refresh every 15 seconds
   useEffect(() => {
     loadDocuments();
     loadSessions();
-    // Refresh every 30 seconds
-    const interval = setInterval(() => { loadDocuments(); loadSessions(); }, 30000);
+    const interval = setInterval(() => {
+      loadDocuments();
+      loadSessions();
+    }, 15000);
     return () => clearInterval(interval);
   }, [loadDocuments, loadSessions]);
 
-  const handleUploadComplete = () => {
-    loadDocuments();
+  // Refresh sessions whenever the active sessionId changes
+  // (covers both new session and switching sessions)
+  useEffect(() => {
+    loadSessions();
+  }, [sessionId, loadSessions]);
+
+  const handleUploadComplete = () => loadDocuments();
+
+  const handleSelectSession = (sid) => {
+    if (sid === sessionId) return; // already active
+    if (onSelectSession) onSelectSession(sid);
   };
 
   const getDocIcon = (type) => {
@@ -103,7 +122,7 @@ export default function Sidebar({ sessionId, onNewSession }) {
       {/* ── Scrollable content area ── */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-1">
 
-        {/* Documents accordion */}
+        {/* ── Documents accordion ── */}
         <div className="mt-2">
           <button
             onClick={() => setDocsOpen((v) => !v)}
@@ -134,7 +153,7 @@ export default function Sidebar({ sessionId, onNewSession }) {
                 documents.map((doc) => (
                   <div
                     key={doc.id}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-800/50 transition-colors group"
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-800/50 transition-colors"
                     title={doc.name}
                   >
                     <span className="text-sm flex-shrink-0">{getDocIcon(doc.type)}</span>
@@ -150,7 +169,7 @@ export default function Sidebar({ sessionId, onNewSession }) {
           )}
         </div>
 
-        {/* Sessions accordion */}
+        {/* ── History accordion ── */}
         <div className="mt-2">
           <button
             onClick={() => setSessionsOpen((v) => !v)}
@@ -159,52 +178,100 @@ export default function Sidebar({ sessionId, onNewSession }) {
             <div className="flex items-center gap-2">
               <Clock size={14} />
               <span className="text-xs font-medium uppercase tracking-wider">History</span>
+              {sessions.length > 0 && (
+                <span className="bg-gray-700 text-gray-400 text-xs px-1.5 py-0.5 rounded-full">
+                  {sessions.length}
+                </span>
+              )}
             </div>
-            {sessionsOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+            <div className="flex items-center gap-1">
+              {loadingSessions && <RefreshCw size={11} className="animate-spin text-gray-600" />}
+              {sessionsOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+            </div>
           </button>
 
           {sessionsOpen && (
             <div className="mt-1 space-y-0.5">
               {sessions.length === 0 ? (
-                <p className="px-3 py-2 text-gray-600 text-xs text-center">No sessions yet</p>
+                <div className="px-3 py-3 text-center">
+                  <MessageSquare size={18} className="text-gray-700 mx-auto mb-1" />
+                  <p className="text-gray-600 text-xs">No history yet</p>
+                  <p className="text-gray-700 text-xs">Start chatting to see sessions here</p>
+                </div>
               ) : (
-                sessions.slice(0, 10).map((s) => (
-                  <div
-                    key={s.session_id}
-                    className={`px-2 py-1.5 rounded-lg transition-colors ${
-                      s.session_id === sessionId
-                        ? 'bg-blue-900/40 border border-blue-700/40'
-                        : 'hover:bg-gray-800/50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <MessageSquare size={11} className={s.session_id === sessionId ? 'text-blue-400' : 'text-gray-600'} />
-                      <p className="text-gray-400 text-xs truncate flex-1">
-                        {s.first_message || 'Empty session'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5 pl-5">
-                      <span className="text-gray-600 text-xs">{s.message_count} msgs</span>
-                      <span className="text-gray-700 text-xs">·</span>
-                      <span className="text-gray-600 text-xs">{timeAgo(s.last_message_at)}</span>
-                    </div>
-                  </div>
-                ))
+                sessions.slice(0, 20).map((s) => {
+                  const isActive = s.session_id === sessionId;
+                  return (
+                    <button
+                      key={s.session_id}
+                      onClick={() => handleSelectSession(s.session_id)}
+                      className={`w-full text-left px-2 py-2 rounded-lg transition-colors ${
+                        isActive
+                          ? 'bg-blue-900/40 border border-blue-700/40'
+                          : 'hover:bg-gray-800/60 border border-transparent'
+                      }`}
+                      title={s.first_message || 'Empty session'}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MessageSquare
+                          size={11}
+                          className={`flex-shrink-0 ${isActive ? 'text-blue-400' : 'text-gray-600'}`}
+                        />
+                        <p className={`text-xs truncate flex-1 ${isActive ? 'text-blue-200' : 'text-gray-300'}`}>
+                          {s.first_message
+                            ? s.first_message.length > 35
+                              ? s.first_message.slice(0, 35) + '…'
+                              : s.first_message
+                            : 'Empty session'}
+                        </p>
+                        {isActive && (
+                          <span className="text-xs text-blue-500 flex-shrink-0">●</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 pl-[19px]">
+                        <span className="text-gray-600 text-xs">{s.message_count} msgs</span>
+                        <span className="text-gray-700 text-xs">·</span>
+                        <span className="text-gray-600 text-xs">{timeAgo(s.last_message_at)}</span>
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
           )}
         </div>
       </div>
 
-      {/* ── New Chat button ── */}
-      <div className="px-4 py-4 border-t border-gray-800 flex-shrink-0">
+      {/* ── Footer: New Chat + User info ── */}
+      <div className="px-4 py-4 border-t border-gray-800 flex-shrink-0 space-y-3">
         <button
           onClick={onNewSession}
           className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors shadow-lg shadow-blue-900/30"
         >
-          <MessageSquare size={15} />
+          <Plus size={15} />
           New Chat
         </button>
+
+        {/* User info + logout */}
+        {user && (
+          <div className="flex items-center gap-2 px-1">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center flex-shrink-0">
+              <User size={13} className="text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-gray-200 text-xs font-medium truncate">{user.name}</p>
+              <p className="text-gray-500 text-xs truncate">{user.email}</p>
+            </div>
+            <button
+              onClick={onLogout}
+              title="Sign out"
+              className="text-gray-500 hover:text-red-400 transition-colors flex-shrink-0"
+              aria-label="Sign out"
+            >
+              <LogOut size={15} />
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

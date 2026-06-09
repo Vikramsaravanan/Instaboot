@@ -47,6 +47,7 @@ async function initDB() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS chat_history (
         id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id    UUID REFERENCES users(id) ON DELETE CASCADE,
         session_id TEXT NOT NULL,
         role       TEXT NOT NULL CHECK (role IN ('user','assistant')),
         content    TEXT NOT NULL,
@@ -54,12 +55,29 @@ async function initDB() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
-    // index for fast session lookups
+    // Add user_id column to existing tables that don't have it yet (safe migration)
     await client.query(`
-      CREATE INDEX IF NOT EXISTS chat_history_session_idx
-        ON chat_history (session_id)
+      ALTER TABLE chat_history ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS chat_history_session_idx ON chat_history (session_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS chat_history_user_idx ON chat_history (user_id)
     `);
     console.log('✓ chat_history table ready');
+
+    // users table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+        name          TEXT        NOT NULL,
+        email         TEXT        NOT NULL UNIQUE,
+        password_hash TEXT        NOT NULL,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    console.log('✓ users table ready');
 
     console.log('✅ Database initialization complete');
   } catch (err) {

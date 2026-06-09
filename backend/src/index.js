@@ -8,6 +8,7 @@ const morgan = require('morgan');
 const { initDB } = require('./config/db');
 const uploadRouter = require('./routes/upload');
 const chatRouter = require('./routes/chat');
+const authRouter = require('./routes/auth');
 const { getAllDocuments } = require('./models/Document');
 
 const app = express();
@@ -25,6 +26,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+app.use('/api/auth', authRouter);
 app.use('/api/upload', uploadRouter);
 // GET /api/documents is served from the upload router (mounted at /api/upload),
 // but also expose it at /api/documents for convenience

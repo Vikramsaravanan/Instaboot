@@ -2,7 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { sendMessage, getChatHistory } from '../api/client';
 
-const SESSION_KEY = 'chatbot_session_id';
+// Session key scoped per user so different accounts never share a session
+function sessionKey(userId) {
+  return `chatbot_session_${userId}`;
+}
 
 function makeMessage(role, content, extras = {}) {
   return {
@@ -15,56 +18,64 @@ function makeMessage(role, content, extras = {}) {
 }
 
 /**
- * Custom hook that manages chat state and session persistence.
+ * useChat — manages messages, session ID, and history loading.
+ *
+ * @param {string} userId — the logged-in user's ID (scopes localStorage key)
  *
  * Returns:
- *  - messages        : array of message objects
- *  - isLoading       : bool
- *  - sessionId       : current session UUID
- *  - error           : string | null
- *  - send(text)      : async function to send a user message
- *  - newSession()    : start a fresh session
- *  - clearError()    : dismiss error
+ *  - messages         : array of message objects
+ *  - isLoading        : bool
+ *  - sessionId        : current session UUID
+ *  - error            : string | null
+ *  - send(text)       : async — send a user message
+ *  - newSession()     : start a fresh session
+ *  - selectSession(id): switch to an existing session
+ *  - clearError()     : dismiss error
  */
-export function useChat() {
-  const [messages, setMessages] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+export function useChat(userId) {
+  const key = sessionKey(userId);
+
   const [sessionId, setSessionId] = useState(() => {
-    const saved = localStorage.getItem(SESSION_KEY);
+    const saved = localStorage.getItem(key);
     return saved || uuidv4();
   });
 
+  const [messages, setMessages]   = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError]         = useState(null);
+
   // Persist sessionId whenever it changes
   useEffect(() => {
-    localStorage.setItem(SESSION_KEY, sessionId);
-  }, [sessionId]);
+    localStorage.setItem(key, sessionId);
+  }, [key, sessionId]);
 
-  // Load history on mount / session change
+  // Load history whenever sessionId changes
   useEffect(() => {
+    if (!userId) return;
     let cancelled = false;
 
     async function loadHistory() {
+      setMessages([]);
       try {
         const data = await getChatHistory(sessionId);
         if (!cancelled && data.history && data.history.length > 0) {
-          const loaded = data.history.map((h) =>
-            makeMessage(h.role, h.content, {
-              agentUsed: h.agent_used || h.agentUsed || null,
-              timestamp: h.created_at || h.timestamp,
-            })
+          setMessages(
+            data.history.map((h) =>
+              makeMessage(h.role, h.content, {
+                agentUsed: h.agent_used || h.agentUsed || null,
+                timestamp: h.created_at || h.timestamp,
+              })
+            )
           );
-          setMessages(loaded);
         }
       } catch (err) {
-        // History load failing is non-fatal; start with empty messages
         console.warn('Could not load chat history:', err.message);
       }
     }
 
     loadHistory();
     return () => { cancelled = true; };
-  }, [sessionId]);
+  }, [sessionId, userId]);
 
   const send = useCallback(async (text) => {
     if (!text || text.trim().length === 0) return;
@@ -76,46 +87,48 @@ export function useChat() {
 
     try {
       const data = await sendMessage(text.trim(), sessionId);
-
-      const assistantMsg = makeMessage('assistant', data.response, {
-        agentUsed:    data.agentUsed,
-        script:       data.script,
-        software:     data.software,
-        os:           data.os,
-        version:      data.version,
-        quickReplies: data.quickReplies || [],
-      });
-      setMessages((prev) => [...prev, assistantMsg]);
+      setMessages((prev) => [
+        ...prev,
+        makeMessage('assistant', data.response, {
+          agentUsed:    data.agentUsed,
+          script:       data.script,
+          software:     data.software,
+          os:           data.os,
+          version:      data.version,
+          quickReplies: data.quickReplies || [],
+        }),
+      ]);
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.');
-      // Add an error bubble so the user sees feedback in chat
-      const errMsg = makeMessage('assistant', `⚠️ ${err.message || 'Request failed. Please try again.'}`, {
-        agentUsed: 'Error',
-        isError: true,
-      });
-      setMessages((prev) => [...prev, errMsg]);
+      setMessages((prev) => [
+        ...prev,
+        makeMessage('assistant', `⚠️ ${err.message || 'Request failed. Please try again.'}`, {
+          agentUsed: 'Error',
+          isError: true,
+        }),
+      ]);
     } finally {
       setIsLoading(false);
     }
   }, [sessionId]);
 
   const newSession = useCallback(() => {
-    const newId = uuidv4();
-    setSessionId(newId);
+    const id = uuidv4();
+    setSessionId(id);
     setMessages([]);
     setError(null);
-    localStorage.setItem(SESSION_KEY, newId);
-  }, []);
+    localStorage.setItem(key, id);
+  }, [key]);
+
+  const selectSession = useCallback((id) => {
+    if (!id || id === sessionId) return;
+    setSessionId(id);
+    setMessages([]);
+    setError(null);
+    localStorage.setItem(key, id);
+  }, [key, sessionId]);
 
   const clearError = useCallback(() => setError(null), []);
 
-  return {
-    messages,
-    isLoading,
-    sessionId,
-    error,
-    send,
-    newSession,
-    clearError,
-  };
+  return { messages, isLoading, sessionId, error, send, newSession, selectSession, clearError };
 }
