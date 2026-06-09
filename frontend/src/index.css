@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base styles ─────────────────────────────────────────────── */
+@layer base {
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    @apply bg-gray-950 text-gray-100;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+/* ── Custom scrollbar ────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111827;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
+
+/* ── Code blocks ─────────────────────────────────────────────── */
+pre {
+  @apply rounded-lg overflow-x-auto text-sm;
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+}
+
+code {
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+}
+
+/* Inline code in markdown */
+p code,
+li code {
+  @apply bg-gray-800 text-blue-300 px-1.5 py-0.5 rounded text-sm;
+}
+
+/* ── Markdown prose in chat bubbles ──────────────────────────── */
+.prose-chat h1,
+.prose-chat h2,
+.prose-chat h3 {
+  @apply text-white font-semibold mb-2 mt-3;
+}
+
+.prose-chat h1 { @apply text-xl; }
+.prose-chat h2 { @apply text-lg; }
+.prose-chat h3 { @apply text-base; }
+
+.prose-chat p  { @apply mb-2 leading-relaxed; }
+.prose-chat ul { @apply list-disc list-inside mb-2 space-y-1; }
+.prose-chat ol { @apply list-decimal list-inside mb-2 space-y-1; }
+.prose-chat li { @apply text-gray-300; }
+.prose-chat blockquote {
+  @apply border-l-4 border-blue-500 pl-3 italic text-gray-400 my-2;
+}
+.prose-chat hr {
+  @apply border-gray-700 my-3;
+}
+.prose-chat strong { @apply text-white font-semibold; }
+.prose-chat em     { @apply text-gray-300; }
+
+/* ── Loading dots animation ──────────────────────────────────── */
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30%            { transform: translateY(-6px); opacity: 1; }
+}
+
+.typing-dot {
+  animation: typing-dot 1.4s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── Fade in animation ───────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeInUp 0.25s ease-out forwards;
+}
+
+/* ── Modal backdrop blur ─────────────────────────────────────── */
+.modal-backdrop {
+  backdrop-filter: blur(4px);
+}
