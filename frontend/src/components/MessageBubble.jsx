@@ -37,7 +37,7 @@ export default function MessageBubble({ message }) {
   const isUser = message.role === 'user';
   const badge = getAgentBadge(message.agentUsed);
 
-  const renderers = {
+  const codeComponents = {
     code({ node, inline, className, children, ...props }) {
       const match = /language-(\w+)/.exec(className || '');
       return !inline && match ? (
@@ -94,8 +94,8 @@ export default function MessageBubble({ message }) {
               <p className="whitespace-pre-wrap break-words">{message.content}</p>
             ) : (
               <div className="prose-chat">
-                <ReactMarkdown components={renderers}>
-                  {message.content}
+                <ReactMarkdown components={codeComponents}>
+                  {String(message.content || '')}
                 </ReactMarkdown>
               </div>
             )}

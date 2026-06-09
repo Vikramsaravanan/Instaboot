@@ -1,23 +1,18 @@
-FROM node:20-alpine
+FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install OS dependencies needed for node-gyp (native modules)
-RUN apk add --no-cache python3 make g++
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-# Copy package files and install dependencies
-COPY package*.json ./
-RUN npm install --omit=dev
+COPY requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+	&& pip install --no-cache-dir -r requirements.txt
 
-# Copy source code
 COPY . .
 
-# Create uploads directory
-RUN mkdir -p uploads
+RUN mkdir -p uploads data
 
-# Expose port
 EXPOSE 5000
 
-# Start the server
-CMD ["node", "src/index.js"]
+CMD ["python", "app.py"]

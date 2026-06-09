@@ -1,27 +1,7 @@
 version: '3.9'
 
 services:
-  # ── PostgreSQL with pgvector ─────────────────────────────────────────────────
-  postgres:
-    image: ankane/pgvector:latest
-    container_name: multiagent-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: multiagent_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-    ports:
-      - '5432:5432'
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/migrations/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres -d multiagent_db']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ── Backend (Node.js / Express) ───────────────────────────────────────────────
+  # ── Backend (Flask + Groq + ChromaDB) ────────────────────────────────────────
   backend:
     build:
       context: ./backend
@@ -32,25 +12,29 @@ services:
       - '5000:5000'
     environment:
       PORT: 5000
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/multiagent_db
-      EMBEDDING_MODEL: Xenova/all-MiniLM-L6-v2
-      TOP_K: 5
-      CHUNK_SIZE: 500
-      CHUNK_OVERLAP: 50
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: llama-3.1-8b-instant
+      EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+      COLLECTION_NAME: instaboot_docs
+      PERSIST_DIRECTORY: /app/data/chroma
+      DB_PATH: /app/data/app.db
+      UPLOAD_DIR: /app/uploads
+      TOP_K: 3
+      CHUNK_SIZE: 800
+      CHUNK_OVERLAP: 120
       CORS_ORIGIN: http://localhost:3000
     volumes:
-      - model_cache:/app/.cache   # cache HuggingFace model weights
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - backend_data:/app/data
+      - backend_uploads:/app/uploads
+      - model_cache:/root/.cache
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"const http = require('http'); const req = http.request('http://localhost:5000/api/health', res => process.exit(res.statusCode===200 ? 0 : 1)); req.on('error', () => process.exit(1)); req.end();\""]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:5000/api/health').status == 200 else 1)\""]
+      interval: 15s
+      timeout: 10s
       retries: 5
-      start_period: 10s
+      start_period: 30s
 
-  # ── Frontend (React) ──────────────────────────────────────────────────────────
+  # ── Frontend (React → nginx → Flask) ─────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
@@ -59,12 +43,13 @@ services:
     restart: unless-stopped
     ports:
       - '3000:3000'
-    environment:
-      REACT_APP_API_URL: http://localhost:5000
+    # REACT_APP_API_URL must be empty so the nginx proxy (/api → backend:5000) is used
+    # Do NOT set it to localhost:5000 inside Docker (that's the host, not the container)
     depends_on:
       backend:
         condition: service_healthy
 
 volumes:
-  postgres_data:
+  backend_data:
+  backend_uploads:
   model_cache:

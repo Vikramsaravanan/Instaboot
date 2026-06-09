@@ -122,9 +122,28 @@ export default function ChatWindow({ messages, isLoading, onSend, onNewChat }) {
         ) : (
           /* Message bubbles */
           <div className="space-y-0.5">
-            {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
-            ))}
+            {messages.map((msg, idx) => {
+              const isLast = idx === messages.length - 1;
+              const hasReplies = isLast && !isLoading && msg.role === 'assistant' && msg.quickReplies?.length > 0;
+              return (
+                <div key={msg.id}>
+                  <MessageBubble message={msg} />
+                  {hasReplies && (
+                    <div className="flex flex-wrap gap-2 px-14 pb-2">
+                      {msg.quickReplies.map((reply) => (
+                        <button
+                          key={reply}
+                          onClick={() => onSend(reply)}
+                          className="px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-blue-600 text-gray-300 hover:text-white border border-gray-600 hover:border-blue-500 rounded-full transition-all duration-200"
+                        >
+                          {reply}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {isLoading && <LoadingDots />}
           </div>
         )}

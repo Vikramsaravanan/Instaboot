@@ -50,8 +50,8 @@ export function useChat() {
         if (!cancelled && data.history && data.history.length > 0) {
           const loaded = data.history.map((h) =>
             makeMessage(h.role, h.content, {
-              agentUsed: h.agent_used,
-              timestamp: h.created_at,
+              agentUsed: h.agent_used || h.agentUsed || null,
+              timestamp: h.created_at || h.timestamp,
             })
           );
           setMessages(loaded);
@@ -78,11 +78,12 @@ export function useChat() {
       const data = await sendMessage(text.trim(), sessionId);
 
       const assistantMsg = makeMessage('assistant', data.response, {
-        agentUsed: data.agentUsed,
-        script: data.script,
-        software: data.software,
-        os: data.os,
-        version: data.version,
+        agentUsed:    data.agentUsed,
+        script:       data.script,
+        software:     data.software,
+        os:           data.os,
+        version:      data.version,
+        quickReplies: data.quickReplies || [],
       });
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err) {

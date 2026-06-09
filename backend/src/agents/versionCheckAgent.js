@@ -79,7 +79,6 @@ async function getLatestVersion(software) {
     }
 
     // For other software, use the static table
-    const fallback = FALLBACK_VERSIONS[key] || FALLBACK_VERSIONS['nodejs'];
     return FALLBACK_VERSIONS[key] || { version: 'Latest', releaseDate: null };
   } catch (err) {
     console.warn(`versionCheckAgent: failed to fetch live version for "${key}":`, err.message);
