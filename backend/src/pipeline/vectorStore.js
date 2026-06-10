@@ -10,19 +10,20 @@ const TOP_K = parseInt(process.env.TOP_K, 10) || 5;
 
 /**
  * Full ingestion pipeline:
- *  1. Create a document record in the DB
+ *  1. Create a document record in the DB (scoped to userId)
  *  2. Chunk all provided texts
  *  3. Embed every chunk
  *  4. Insert chunks + embeddings into the DB
  *
- * @param {string}   name  - Human-readable name for the document
- * @param {string}   type  - 'csv' | 'json' | 'chat' | 'text'
- * @param {string[]} texts - Array of raw text strings to ingest
+ * @param {string}   userId - Owner of this document
+ * @param {string}   name   - Human-readable name for the document
+ * @param {string}   type   - 'csv' | 'json' | 'chat' | 'text'
+ * @param {string[]} texts  - Array of raw text strings to ingest
  * @returns {Promise<{ documentId: string, chunksCreated: number }>}
  */
-async function storeDocument(name, type, texts) {
+async function storeDocument(userId, name, type, texts) {
   // 1. Create document record
-  const doc = await createDocument(name, type);
+  const doc = await createDocument(userId, name, type);
   const documentId = doc.id;
 
   // 2. Chunk all texts

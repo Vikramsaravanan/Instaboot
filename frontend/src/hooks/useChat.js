@@ -130,5 +130,39 @@ export function useChat(userId) {
 
   const clearError = useCallback(() => setError(null), []);
 
-  return { messages, isLoading, sessionId, error, send, newSession, selectSession, clearError };
+  /**
+   * Inject messages into the chat after file upload + analysis.
+   * Supports two formats from the API:
+   *   - results[]  : per-prompt { prompt, response, agentUsed } — inject each pair
+   *   - analysis   : fallback single summary string
+   */
+  const injectMessages = useCallback(({ userMessage, results, analysis, agentUsed }) => {
+    setMessages((prev) => {
+      const next = [...prev];
+
+      // Upload notification message
+      next.push(makeMessage('user', userMessage));
+
+      if (results && results.length > 0) {
+        // Inject each prompt as a user message and each response as assistant
+        for (const r of results) {
+          next.push(makeMessage('user', r.prompt));
+          next.push(makeMessage('assistant', r.response, {
+            agentUsed: r.agentUsed,
+            script:    r.script   || null,
+            os:        r.os       || null,
+            software:  r.software || null,
+            version:   r.version  || null,
+          }));
+        }
+      } else if (analysis) {
+        // Fallback: single summary block
+        next.push(makeMessage('assistant', analysis, { agentUsed }));
+      }
+
+      return next;
+    });
+  }, []);
+
+  return { messages, isLoading, sessionId, error, send, newSession, selectSession, injectMessages, clearError };
 }

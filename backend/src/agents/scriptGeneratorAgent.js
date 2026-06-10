@@ -131,9 +131,9 @@ function handleGeneralChat(message) {
   let response;
 
   if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
-    response = `👋 Hello! I'm your **MultiAgent Chatbot**. I can help you with:\n\n- 🖥️ **Install scripts** – Just say "install Docker on Windows" or "how do I get Python on Mac"\n- 📄 **Document Q&A** – Upload a CSV or JSON file and ask questions about it\n- 💬 **General assistance** – Ask me anything!\n\nWhat would you like to do today?`;
+    response = `👋 Hello! I'm **Instaboot**, your AI assistant. I can help you with:\n\n- 🖥️ **Install scripts** – Just say "install Docker on Windows" or "how do I get Python on Mac"\n- 📄 **Document Q&A** – Upload a CSV or JSON file and ask questions about it\n- 💬 **General assistance** – Ask me anything!\n\nWhat would you like to do today?`;
   } else if (lower.includes('help') || lower.includes('what can you do')) {
-    response = `## What I Can Do\n\n**1. Generate Install Scripts**\nAsk me to install any of these:\n- Ubuntu/WSL, Docker, Node.js, Python, Git, VSCode\n- Chrome, Firefox, Zoom, VLC, 7-Zip, Steam\n\nWorks for Windows, macOS, and Linux (Ubuntu/Fedora).\n\n**2. Answer Questions from Your Documents**\nUpload a CSV or JSON file using the sidebar, then ask questions about its contents.\n\n**3. General Conversation**\nAsk me anything and I'll do my best to help!\n\n**Example prompts:**\n- "Install Docker on my Windows 11 machine"\n- "How do I get Python on macOS?"\n- "I want ubuntu on linux"`;
+    response = `## What Instaboot Can Do\n\n**1. Generate Install Scripts**\nAsk me to install any of these:\n- Ubuntu/WSL, Docker, Node.js, Python, Git, VSCode\n- Chrome, Firefox, Zoom, VLC, 7-Zip, Steam\n\nWorks for Windows, macOS, and Linux (Ubuntu/Fedora).\n\n**2. Answer Questions from Your Documents**\nUpload a CSV or JSON file using the sidebar, then ask questions about its contents.\n\n**3. General Conversation**\nAsk me anything and I'll do my best to help!\n\n**Example prompts:**\n- "Install Docker on my Windows 11 machine"\n- "How do I get Python on macOS?"\n- "I want ubuntu on linux"`;
   } else if (lower.includes('thank')) {
     response = `You're welcome! Let me know if there's anything else I can help with. 😊`;
   } else if (lower.includes('bye') || lower.includes('goodbye')) {

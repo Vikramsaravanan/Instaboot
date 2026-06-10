@@ -23,10 +23,18 @@ async function initDB() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS documents (
         id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id    UUID REFERENCES users(id) ON DELETE CASCADE,
         name       TEXT NOT NULL,
         type       TEXT NOT NULL CHECK (type IN ('csv','json','chat','text')),
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
+    `);
+    // Safe migration: add user_id to existing documents table if missing
+    await client.query(`
+      ALTER TABLE documents ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS documents_user_idx ON documents (user_id)
     `);
     console.log('✓ documents table ready');
 

@@ -27,10 +27,11 @@ function timeAgo(isoString) {
  *  - sessionId        : current session UUID
  *  - onNewSession     : () => void
  *  - onSelectSession  : (sessionId: string) => void   — switch to an existing session
+ *  - onAnalysisComplete : ({ userMessage, analysis, agentUsed }) => void
  *  - user             : { name, email } | null
  *  - onLogout         : () => void
  */
-export default function Sidebar({ sessionId, onNewSession, onSelectSession, user, onLogout }) {
+export default function Sidebar({ sessionId, onNewSession, onSelectSession, onAnalysisComplete, user, onLogout }) {
   const [documents, setDocuments]     = useState([]);
   const [sessions, setSessions]       = useState([]);
   const [docsOpen, setDocsOpen]       = useState(true);
@@ -105,8 +106,8 @@ export default function Sidebar({ sessionId, onNewSession, onSelectSession, user
             <Bot size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-white font-bold text-base leading-tight">MultiAgent</h1>
-            <p className="text-gray-500 text-xs">Chatbot</p>
+            <h1 className="text-white font-bold text-base leading-tight">Instaboot</h1>
+            <p className="text-gray-500 text-xs">AI Assistant</p>
           </div>
         </div>
       </div>
@@ -116,7 +117,11 @@ export default function Sidebar({ sessionId, onNewSession, onSelectSession, user
         <p className="text-gray-500 text-xs font-medium uppercase tracking-wider mb-2 px-1">
           Upload Data
         </p>
-        <FileUpload onUploadComplete={handleUploadComplete} />
+        <FileUpload
+          sessionId={sessionId}
+          onUploadComplete={handleUploadComplete}
+          onAnalysisComplete={onAnalysisComplete}
+        />
       </div>
 
       {/* ── Scrollable content area ── */}

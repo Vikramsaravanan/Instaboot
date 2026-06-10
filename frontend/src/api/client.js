@@ -36,7 +36,7 @@ api.interceptors.response.use(
 // ── Upload ────────────────────────────────────────────────────────────────────
 
 /**
- * Upload a CSV or JSON file to the backend.
+ * Upload a CSV or JSON file to the backend (index only, no analysis).
  * @param {File} file
  * @param {function} [onProgress]
  * @returns {Promise<{ documentId, chunksCreated, message }>}
@@ -46,6 +46,29 @@ export async function uploadFile(file, onProgress) {
   formData.append('file', file);
 
   const response = await api.post('/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: onProgress
+      ? (e) => {
+          if (e.total) onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      : undefined,
+  });
+  return response.data;
+}
+
+/**
+ * Upload a file AND get an LLM analysis injected into the chat session.
+ * @param {File}     file
+ * @param {string}   sessionId
+ * @param {function} [onProgress]
+ * @returns {Promise<{ documentId, chunksCreated, analysis, userMessage, agentUsed, message }>}
+ */
+export async function uploadAndAnalyzeFile(file, sessionId, onProgress) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('sessionId', sessionId);
+
+  const response = await api.post('/upload/analyze', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: onProgress
       ? (e) => {

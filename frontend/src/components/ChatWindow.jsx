@@ -101,7 +101,7 @@ export default function ChatWindow({ messages, isLoading, onSend, onNewChat }) {
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center mb-5 shadow-2xl shadow-blue-900/50">
               <Bot size={30} className="text-white" />
             </div>
-            <h3 className="text-white text-xl font-bold mb-2">MultiAgent Chatbot</h3>
+            <h3 className="text-white text-xl font-bold mb-2">Instaboot</h3>
             <p className="text-gray-400 text-sm max-w-md mb-8 leading-relaxed">
               Generate install scripts for Windows, macOS, and Linux, or ask questions about your uploaded documents.
             </p>

@@ -9,7 +9,8 @@ const { initDB } = require('./config/db');
 const uploadRouter = require('./routes/upload');
 const chatRouter = require('./routes/chat');
 const authRouter = require('./routes/auth');
-const { getAllDocuments } = require('./models/Document');
+const { requireAuth } = require('./middleware/auth');
+const { getDocumentsByUser } = require('./models/Document');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -28,10 +29,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRouter);
 app.use('/api/upload', uploadRouter);
-// GET /api/documents is served from the upload router (mounted at /api/upload),
-// but also expose it at /api/documents for convenience
-app.get('/api/documents', async (req, res) => {
-  const documents = await getAllDocuments();
+// /api/documents — convenience alias for /api/upload, auth-protected, user-scoped
+app.get('/api/documents', requireAuth, async (req, res) => {
+  const documents = await getDocumentsByUser(req.user.id);
   return res.json({ success: true, documents });
 });
 app.use('/api/chat', chatRouter);

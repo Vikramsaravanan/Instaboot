@@ -1,24 +1,29 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Upload, FileText, CheckCircle, AlertCircle, X, Loader } from 'lucide-react';
-import { uploadFile } from '../api/client';
+import { Upload, FileText, CheckCircle, AlertCircle, X, Loader, Sparkles } from 'lucide-react';
+import { uploadAndAnalyzeFile } from '../api/client';
 
 /**
  * FileUpload – drag-and-drop or click-to-select file upload for CSV/JSON files.
+ * After upload, automatically runs LLM analysis and injects it into the chat.
  *
  * Props:
- *  - onUploadComplete : (result) => void  – called after a successful upload
+ *  - sessionId          : string   — current chat session ID (required for analysis)
+ *  - onUploadComplete   : (result) => void  — called after successful upload + index
+ *  - onAnalysisComplete : ({ userMessage, analysis, agentUsed }) => void
+ *                         — called with the LLM analysis to inject into chat
  */
-export default function FileUpload({ onUploadComplete }) {
-  const [isDragging, setIsDragging] = useState(false);
+export default function FileUpload({ sessionId, onUploadComplete, onAnalysisComplete }) {
+  const [isDragging, setIsDragging]   = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [toast, setToast] = useState(null); // { type: 'success'|'error', message }
+  const [uploading, setUploading]     = useState(false);
+  const [progress, setProgress]       = useState(0);
+  const [status, setStatus]           = useState('idle'); // 'idle'|'uploading'|'analyzing'|'done'|'error'
+  const [toast, setToast]             = useState(null);
   const inputRef = useRef(null);
 
   const showToast = (type, message) => {
     setToast({ type, message });
-    setTimeout(() => setToast(null), 4000);
+    setTimeout(() => setToast(null), 5000);
   };
 
   const validateFile = (file) => {
@@ -31,24 +36,14 @@ export default function FileUpload({ onUploadComplete }) {
 
   const handleFileSelect = (file) => {
     const err = validateFile(file);
-    if (err) {
-      showToast('error', err);
-      return;
-    }
+    if (err) { showToast('error', err); return; }
     setSelectedFile(file);
     setToast(null);
+    setStatus('idle');
   };
 
-  const handleDragOver = useCallback((e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
-
+  const handleDragOver  = useCallback((e) => { e.preventDefault(); setIsDragging(true); }, []);
+  const handleDragLeave = useCallback((e) => { e.preventDefault(); setIsDragging(false); }, []);
   const handleDrop = useCallback((e) => {
     e.preventDefault();
     setIsDragging(false);
@@ -63,17 +58,45 @@ export default function FileUpload({ onUploadComplete }) {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile || uploading) return;
+
     setUploading(true);
     setProgress(0);
+    setStatus('uploading');
 
     try {
-      const result = await uploadFile(selectedFile, setProgress);
-      showToast('success', result.message || `File uploaded — ${result.chunksCreated} chunks indexed.`);
+      // Phase 1: upload & index (progress tracked)
+      const result = await uploadAndAnalyzeFile(
+        selectedFile,
+        sessionId,
+        (pct) => {
+          setProgress(pct);
+          // Once file transfer is done, switch to "analyzing" status
+          if (pct >= 100) setStatus('analyzing');
+        }
+      );
+
+      setStatus('done');
+      showToast('success', `"${selectedFile.name}" indexed & analyzed ✓`);
+
+      // Notify sidebar to refresh document list
+      if (onUploadComplete) onUploadComplete(result);
+
+      // Inject upload message + every prompt/response pair into the chat
+      if (onAnalysisComplete) {
+        onAnalysisComplete({
+          userMessage: result.userMessage,
+          results:     result.results || [],       // per-prompt detail
+          analysis:    result.analysis,            // summary (fallback)
+          agentUsed:   result.agentUsed || 'File Analysis Agent',
+        });
+      }
+
       setSelectedFile(null);
       setProgress(0);
-      if (onUploadComplete) onUploadComplete(result);
+      setTimeout(() => setStatus('idle'), 2000);
     } catch (err) {
+      setStatus('error');
       showToast('error', err.message || 'Upload failed. Please try again.');
     } finally {
       setUploading(false);
@@ -83,6 +106,7 @@ export default function FileUpload({ onUploadComplete }) {
   const clearFile = () => {
     setSelectedFile(null);
     setToast(null);
+    setStatus('idle');
   };
 
   const formatSize = (bytes) => {
@@ -90,6 +114,14 @@ export default function FileUpload({ onUploadComplete }) {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   };
+
+  const statusLabel = {
+    uploading: 'Uploading & indexing…',
+    analyzing: 'Running prompts through agent…',
+    done:      'Done!',
+    error:     'Upload failed',
+    idle:      '',
+  }[status];
 
   return (
     <div className="w-full">
@@ -99,7 +131,7 @@ export default function FileUpload({ onUploadComplete }) {
           isDragging
             ? 'border-blue-500 bg-blue-900/20'
             : selectedFile
-              ? 'border-green-600/50 bg-green-900/10'
+              ? 'border-blue-600/50 bg-blue-900/10'
               : 'border-gray-600 hover:border-gray-500 bg-gray-800/30 hover:bg-gray-800/50'
         }`}
         onClick={() => !selectedFile && inputRef.current?.click()}
@@ -122,18 +154,20 @@ export default function FileUpload({ onUploadComplete }) {
 
         {selectedFile ? (
           <div className="flex items-center gap-2">
-            <FileText size={16} className="text-green-400 flex-shrink-0" />
+            <FileText size={16} className="text-blue-400 flex-shrink-0" />
             <div className="flex-1 min-w-0 text-left">
-              <p className="text-green-300 text-xs font-medium truncate">{selectedFile.name}</p>
+              <p className="text-blue-300 text-xs font-medium truncate">{selectedFile.name}</p>
               <p className="text-gray-500 text-xs">{formatSize(selectedFile.size)}</p>
             </div>
-            <button
-              onClick={(e) => { e.stopPropagation(); clearFile(); }}
-              className="text-gray-500 hover:text-gray-300 flex-shrink-0"
-              aria-label="Remove selected file"
-            >
-              <X size={14} />
-            </button>
+            {!uploading && (
+              <button
+                onClick={(e) => { e.stopPropagation(); clearFile(); }}
+                className="text-gray-500 hover:text-gray-300 flex-shrink-0"
+                aria-label="Remove selected file"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-1 py-1">
@@ -150,14 +184,19 @@ export default function FileUpload({ onUploadComplete }) {
       {uploading && (
         <div className="mt-2">
           <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>Uploading & indexing…</span>
-            <span>{progress}%</span>
+            <span>{statusLabel}</span>
+            {status === 'uploading' && <span>{progress}%</span>}
           </div>
           <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-blue-600 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
+            {status === 'analyzing' ? (
+              /* Indeterminate progress bar while LLM is running */
+              <div className="h-full bg-gradient-to-r from-blue-600 to-indigo-500 rounded-full animate-pulse w-full" />
+            ) : (
+              <div
+                className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            )}
           </div>
         </div>
       )}
@@ -168,18 +207,17 @@ export default function FileUpload({ onUploadComplete }) {
           onClick={handleUpload}
           className="mt-2 w-full flex items-center justify-center gap-2 py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors"
         >
-          <Upload size={13} />
-          Upload &amp; Index
+          <Sparkles size={13} />
+          Upload &amp; Analyse
         </button>
       )}
 
-      {/* Uploading spinner */}
-      {uploading && (
-        <div className="mt-2 flex items-center justify-center gap-2 text-blue-400 text-xs">
-          <Loader size={13} className="animate-spin" />
-          Processing… (this may take a moment)
-        </div>
-      )}
+          {uploading && (
+            <div className="mt-2 flex items-center justify-center gap-2 text-blue-400 text-xs">
+              <Loader size={13} className="animate-spin" />
+              {status === 'analyzing' ? 'Running prompts through agent…' : 'Uploading & indexing…'}
+            </div>
+          )}
 
       {/* Toast */}
       {toast && (
@@ -190,8 +228,7 @@ export default function FileUpload({ onUploadComplete }) {
         }`}>
           {toast.type === 'success'
             ? <CheckCircle size={13} className="flex-shrink-0 mt-0.5" />
-            : <AlertCircle size={13} className="flex-shrink-0 mt-0.5" />
-          }
+            : <AlertCircle size={13} className="flex-shrink-0 mt-0.5" />}
           <span>{toast.message}</span>
         </div>
       )}

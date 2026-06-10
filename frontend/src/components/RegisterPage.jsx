@@ -44,7 +44,7 @@ export default function RegisterPage() {
             <Zap size={24} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Create an account</h1>
-          <p className="text-gray-400 text-sm mt-1">Get started with InstaBoot</p>
+          <p className="text-gray-400 text-sm mt-1">Get started with Instaboot</p>
         </div>
 
         {/* Server error */}

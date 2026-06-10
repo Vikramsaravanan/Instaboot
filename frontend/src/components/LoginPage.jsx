@@ -39,7 +39,7 @@ export default function LoginPage() {
             <Zap size={24} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Welcome back</h1>
-          <p className="text-gray-400 text-sm mt-1">Sign in to InstaBoot</p>
+          <p className="text-gray-400 text-sm mt-1">Sign in to Instaboot</p>
         </div>
 
         {/* Server error */}

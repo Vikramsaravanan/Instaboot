@@ -1,8 +1,8 @@
-# MultiAgent Chatbot
+# Instaboot
 
-A full-stack AI chatbot application that answers questions from uploaded documents and routes chat requests through the Instaboot chatbot backend.
+An AI-powered assistant that generates install scripts for any software across Windows, macOS, and Linux, and answers questions from your uploaded documents.
 
-**Stack:** React.js · Tailwind CSS · Flask · Groq · ChromaDB · sentence-transformers
+**Stack:** React.js · Tailwind CSS · Node.js · Express · PostgreSQL · Groq · pgvector
 
 ---
 

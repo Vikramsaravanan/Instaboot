@@ -16,8 +16,7 @@ function ProtectedRoute({ user, children }) {
 // ── Main chat layout ──────────────────────────────────────────────────────────
 function ChatLayout() {
   const { user, logout } = useAuth();
-  // Pass userId so each user gets their own localStorage session key
-  const { messages, isLoading, sessionId, send, newSession, selectSession } = useChat(user?.id);
+  const { messages, isLoading, sessionId, send, newSession, selectSession, injectMessages } = useChat(user?.id);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-gray-950">
@@ -26,6 +25,7 @@ function ChatLayout() {
           sessionId={sessionId}
           onNewSession={newSession}
           onSelectSession={selectSession}
+          onAnalysisComplete={injectMessages}
           user={user}
           onLogout={logout}
         />
