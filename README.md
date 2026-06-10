@@ -233,6 +233,117 @@ List all sessions for the authenticated user only.
 
 ---
 
+## Architecture & Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          INSTABOOT ARCHITECTURE                         │
+│              Multi-Agent Chatbot with RAG, Groq LLM & Document Querying │
+└─────────────────────────────────────────────────────────────────────────┘
+
+USER
+ │  Ask questions / upload documents
+ ▼
+FRONTEND (React)
+ │  Chat interface · File upload · Display responses
+ │  HTTP / REST
+ ▼
+BACKEND (Node.js + Express)
+ │  API endpoints · Request validation · JWT auth · Response handling
+ │
+ ├──────────────────────────────► DATABASE (PostgreSQL)
+ │                                 Users · Chat history · File metadata
+ │
+ ▼
+AGENT ROUTER  —  classifies the user request and routes to the right agent
+ │
+ ├──── General / Non-Document Query ──────► CHAT AGENT
+ │                                          Handles general conversation
+ │                                                │
+ └──── Document / Knowledge Search ───────► DOCUMENT AGENT (RAG)
+                                             Handles document queries
+                                             using the RAG pipeline
+                                                  │
+                                         ┌────────▼──────────┐
+                                         │  SEMANTIC SEARCH  │
+                                         │  (find similar    │
+                                         │   chunks)         │
+                                         └────────┬──────────┘
+                                                  │
+                                         ┌────────▼──────────┐
+                                         │ RETRIEVE TOP-K    │
+                                         │ CONTEXT           │
+                                         │ (relevant chunks) │
+                                         └────────┬──────────┘
+                                                  │
+                                         ┌────────▼──────────┐
+                                         │ AUGMENTED PROMPT  │
+                                         │ (question +       │
+                                         │  context)         │
+                                         └────────┬──────────┘
+                                                  │
+                                         ◄────────┘
+GROQ LLM API (Llama 3.x models)
+ │  Generate response from Chat Agent or augmented RAG prompt
+ ▼
+RESPONSE PROCESSING
+ │  Format response · Add sources (if RAG) · Handle errors
+ ▼
+RESPONSE TO USER — displayed in the UI
+
+
+DOCUMENT INGESTION PIPELINE (runs on file upload)
+─────────────────────────────────────────────────
+  Upload (CSV / JSON)
+       │
+  Text Extraction
+       │
+  Text Chunking  (split into small overlapping chunks)
+       │
+  Embedding Generation  (@xenova/all-MiniLM-L6-v2 → 384-dim vectors)
+       │
+  Vector Storage  (FLOAT8[] in PostgreSQL, scoped to user)
+```
+
+### Workflow Summary
+
+1. User interacts via the React frontend
+2. Request goes to the Node.js/Express backend API
+3. Agent Router classifies the request (install script / document query / general chat)
+4. Routed to the Script Generator Agent, Knowledge Query Agent, or General Chat Agent
+5. For document queries — RAG pipeline retrieves relevant chunks via cosine similarity
+6. Context + query are sent to the Groq LLM API
+7. Response is processed and sent back to the UI
+
+---
+
+## Assumptions
+
+- **Single-tenant deployment** — the app is intended to run for a team or personal use; it is not hardened for high-scale public deployment out of the box
+- **PostgreSQL is available locally** — the setup guide assumes a locally running PostgreSQL 14+ instance; no managed DB setup is included
+- **Groq API access** — LLM responses require a valid Groq API key; without it the chat agent falls back to canned keyword-based responses only
+- **CSV/JSON prompt files** — the file prompt pipeline assumes the input file contains a column named `prompt`, `query`, `question`, `text`, `input`, `message`, or `content`; arbitrary column names may not be detected correctly
+- **English-language prompts** — the intent agent uses English keyword and regex patterns; non-English queries will mostly fall through to the general chat handler
+- **Trusted internal network** — CORS is locked to a single origin; the app assumes frontend and backend run on the same trusted network
+- **Modern browsers** — the UI uses ES2020+ features and modern CSS; Internet Explorer and legacy browsers are not supported
+
+---
+
+## Limitations
+
+- **No streaming responses** — Groq responses are returned as a complete payload; there is no token-by-token streaming, so long responses have a visible delay before appearing
+- **Keyword-based intent detection** — the Intent Agent uses regex/keyword matching, not an LLM classifier; it can misroute ambiguous messages and has no context memory across turns for intent detection
+- **Embedding search is global** — the vector similarity search queries all chunks in the database, not just the current user's documents; document-level access control is enforced at the metadata layer but embeddings are searched globally
+- **No file deletion** — uploaded documents can be listed but not deleted through the UI; removal requires direct database access
+- **CSV/JSON only** — the upload pipeline accepts only `.csv` and `.json` files; PDF, DOCX, TXT, and other formats from the architecture diagram are not yet supported
+- **No conversation memory in LLM calls** — each chat message is sent to Groq as a standalone prompt; the LLM does not receive prior conversation turns as context, so it cannot refer back to earlier messages in a session
+- **Static version data** — software version lookups use a static fallback table for most tools; only Node.js and Python fetch live version data; others may be outdated
+- **Single embedding model** — the `Xenova/all-MiniLM-L6-v2` model is hardcoded; switching models would require re-embedding all stored documents
+- **No rate limiting** — the API has no per-user or global rate limiting; in a production environment this should be added to prevent abuse
+- **Docker config is outdated** — the `docker-compose.yml` still targets the legacy Python/Flask backend; it needs to be updated before Docker deployment works with the Node.js backend
+
+---
+
 ## How the Agents Work
 
 ```
