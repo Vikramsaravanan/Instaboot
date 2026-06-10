@@ -19,7 +19,19 @@ async function initDB() {
   try {
     console.log('Initializing database...');
 
-    // documents table
+    // ── users — must be first (other tables FK reference it) ──────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+        name          TEXT        NOT NULL,
+        email         TEXT        NOT NULL UNIQUE,
+        password_hash TEXT        NOT NULL,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    console.log('✓ users table ready');
+
+    // ── documents ─────────────────────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS documents (
         id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -29,16 +41,11 @@ async function initDB() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
-    // Safe migration: add user_id to existing documents table if missing
-    await client.query(`
-      ALTER TABLE documents ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS documents_user_idx ON documents (user_id)
-    `);
+    await client.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE`);
+    await client.query(`CREATE INDEX IF NOT EXISTS documents_user_idx ON documents (user_id)`);
     console.log('✓ documents table ready');
 
-    // chunks table — embedding stored as FLOAT8 array (no extension needed)
+    // ── chunks ────────────────────────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS chunks (
         id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -51,7 +58,7 @@ async function initDB() {
     `);
     console.log('✓ chunks table ready');
 
-    // chat_history table
+    // ── chat_history ──────────────────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS chat_history (
         id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -63,29 +70,10 @@ async function initDB() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
-    // Add user_id column to existing tables that don't have it yet (safe migration)
-    await client.query(`
-      ALTER TABLE chat_history ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS chat_history_session_idx ON chat_history (session_id)
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS chat_history_user_idx ON chat_history (user_id)
-    `);
+    await client.query(`ALTER TABLE chat_history ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE`);
+    await client.query(`CREATE INDEX IF NOT EXISTS chat_history_session_idx ON chat_history (session_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS chat_history_user_idx ON chat_history (user_id)`);
     console.log('✓ chat_history table ready');
-
-    // users table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-        name          TEXT        NOT NULL,
-        email         TEXT        NOT NULL UNIQUE,
-        password_hash TEXT        NOT NULL,
-        created_at    TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-    console.log('✓ users table ready');
 
     console.log('✅ Database initialization complete');
   } catch (err) {
