@@ -1,84 +1,64 @@
 # Instaboot
 
-An AI-powered assistant that generates install scripts for any software across Windows, macOS, and Linux, and answers questions from your uploaded documents.
+An AI-powered assistant that generates install scripts for 70+ tools across Windows, macOS, and Linux, runs prompt pipelines from uploaded files, and answers questions about your documents — all with per-user privacy and JWT authentication.
 
-**Stack:** React.js · Tailwind CSS · Node.js · Express · PostgreSQL · Groq · pgvector
+**Stack:** React 18 · Tailwind CSS · Node.js · Express · PostgreSQL · Groq LLM · @xenova/transformers
 
 ---
 
 ## Features
 
-- **Chatbot Agent** – Answers general questions and retrieves relevant context from uploaded files
-- **Document Query** – Embeds uploaded CSV/JSON/text files and answers questions using semantic similarity search (ChromaDB)
-- **Upload Support** – Index documents through the UI and keep them available for later chat sessions
+- **Install Script Generator** — Ask to install any software on Windows, macOS, or Linux and get ready-to-run terminal commands
+- **File Prompt Runner** — Upload a CSV/JSON file containing prompts; the agent runs each one in order and returns the results in chat
+- **Document Q&A** — Upload CSV/JSON files, index them as embeddings, and ask questions about their contents
+- **Per-user Privacy** — Chat history and uploaded documents are scoped to the logged-in user; other users cannot access your data
+- **JWT Authentication** — Register/login with email + password; tokens are stored in localStorage and sent on every request
 
 ---
 
 ## Prerequisites
 
-- **Python 3.10+** and **pip** if you want to run the backend outside Docker
-- **Docker Desktop** for the Docker Compose setup
-- A **GROQ_API_KEY** if you want live model responses
+- **Node.js 18+** and **npm**
+- **PostgreSQL 14+** running locally (or via Docker)
+- A **GROQ_API_KEY** from [console.groq.com](https://console.groq.com) for LLM responses
 
 ---
 
-## Quick Start with Docker Compose
+## Quick Start
+
+### 1. Clone and configure
 
 ```bash
-# 1. Clone / navigate to the project
-cd d:\vikram\multiagent-chatbot
+cd instaboot
 
-# 2. Start all services (backend + frontend)
-docker-compose up --build
-
-# 3. Open the app
-#    Frontend:  http://localhost:3000
-#    Backend:   http://localhost:5000/api/health
+# Backend environment
+copy backend\.env.example backend\.env
+# Open backend/.env and set your GROQ_API_KEY and DATABASE_URL
 ```
 
-The first startup downloads the ~90 MB embedding model. Subsequent starts use the cached model volume.
-
----
-
-## Manual Setup (without Docker)
-
-### 1. PostgreSQL Setup
+### 2. PostgreSQL setup
 
 ```sql
--- In psql, create the database and enable pgvector:
+-- Run in psql as the postgres user:
 CREATE DATABASE multiagent_db;
-\c multiagent_db
-CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
-### 2. Backend
+The application creates all tables automatically on first startup via `initDB()`. No manual migration needed.
+
+### 3. Backend
 
 ```bash
 cd backend
-
-# Copy and fill in your environment variables
-copy .env.example .env
-# Edit .env — at minimum set GROQ_API_KEY if you want live responses
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Start in development mode (with auto-reload)
-python app.py
-
-# OR build and run with Docker Compose from the project root
-docker-compose up --build
+npm install
+npm run dev
+# Server starts at http://localhost:5000
 ```
 
-### 3. Frontend
+### 4. Frontend
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start the development server
 npm start
 # Opens http://localhost:3000 automatically
 ```
@@ -87,23 +67,50 @@ npm start
 
 ## Environment Variables
 
-| Variable          | Default                                                   | Description                                       |
-|-------------------|-----------------------------------------------------------|---------------------------------------------------|
-| `PORT`            | `5000`                                                    | Backend HTTP port                                 |
-| `GROQ_API_KEY`    | none                                                      | Enables live chatbot responses                    |
-| `GROQ_MODEL`      | `openai/gpt-oss-120b`                                     | Groq chat model                                   |
-| `EMBEDDING_MODEL` | `sentence-transformers/all-MiniLM-L6-v2`                 | Model for document embeddings                     |
-| `COLLECTION_NAME` | `instaboot_docs`                                          | ChromaDB collection name                          |
-| `PERSIST_DIRECTORY` | `backend/data/chroma`                                   | Location for persisted vector data                |
-| `DB_PATH`         | `backend/data/app.db`                                     | SQLite file for sessions and document metadata    |
-| `TOP_K`           | `3`                                                       | Number of similar chunks to retrieve per query    |
-| `CHUNK_SIZE`      | `800`                                                     | Characters per text chunk                         |
-| `CHUNK_OVERLAP`   | `120`                                                     | Overlap characters between adjacent chunks        |
-| `CORS_ORIGIN`     | `http://localhost:3000`                                   | Allowed frontend origin                           |
+All variables go in `backend/.env`. Copy from `backend/.env.example`.
+
+| Variable         | Default                                                  | Description                                    |
+|------------------|----------------------------------------------------------|------------------------------------------------|
+| `PORT`           | `5000`                                                   | Backend HTTP port                              |
+| `DATABASE_URL`   | `postgresql://postgres:password@localhost:5432/multiagent_db` | PostgreSQL connection string            |
+| `JWT_SECRET`     | *(required)*                                             | Secret used to sign JWT tokens — set a strong random string |
+| `GROQ_API_KEY`   | *(required)*                                             | Groq API key for LLM responses                 |
+| `GROQ_MODEL`     | `llama3-8b-8192`                                         | Groq model name                                |
+| `CORS_ORIGIN`    | `http://localhost:3000`                                  | Allowed frontend origin                        |
+| `CHUNK_SIZE`     | `500`                                                    | Characters per text chunk                      |
+| `CHUNK_OVERLAP`  | `50`                                                     | Overlap characters between adjacent chunks     |
+| `TOP_K`          | `5`                                                      | Number of similar chunks to retrieve per query |
 
 ---
 
 ## API Documentation
+
+All routes except `/api/auth/*` and `/api/health` require a `Authorization: Bearer <token>` header.
+
+### Auth
+
+#### `POST /api/auth/register`
+```json
+// Request
+{ "name": "Jane Doe", "email": "jane@example.com", "password": "secret123" }
+
+// Response 201
+{ "success": true, "token": "eyJ...", "user": { "id": "uuid", "name": "Jane Doe", "email": "jane@example.com" } }
+```
+
+#### `POST /api/auth/login`
+```json
+// Request
+{ "email": "jane@example.com", "password": "secret123" }
+
+// Response 200
+{ "success": true, "token": "eyJ...", "user": { "id": "uuid", "name": "Jane Doe", "email": "jane@example.com" } }
+```
+
+#### `GET /api/auth/me`
+Returns the user decoded from the current token.
+
+---
 
 ### Health Check
 
@@ -112,52 +119,76 @@ GET /api/health
 Response: { "status": "ok", "timestamp": "2024-06-01T12:00:00.000Z" }
 ```
 
+---
+
 ### Upload
 
-#### `POST /api/upload`
-Upload a CSV or JSON file for indexing.
+All upload routes require authentication. Documents are stored per-user and never visible to other users.
+
+#### `POST /api/upload/analyze` *(recommended)*
+Upload a CSV/JSON file containing prompts. The agent runs each prompt through the pipeline in order and saves all results to the current chat session.
 
 ```
 Content-Type: multipart/form-data
-Body: file = <your .csv or .json file>
+Body: file=<file>, sessionId=<uuid>
 
 Response:
 {
   "success": true,
   "documentId": "uuid",
-  "chunksCreated": 42,
-  "message": "Successfully ingested \"data.csv\" — 42 chunks stored."
+  "chunksCreated": 12,
+  "promptCount": 3,
+  "results": [
+    { "index": 1, "prompt": "Install Docker on Windows", "response": "...", "agentUsed": "Script Generator Agent", "script": "..." },
+    { "index": 2, "prompt": "Install Python on Ubuntu", "response": "...", "agentUsed": "Script Generator Agent", "script": "..." }
+  ],
+  "message": "\"prompts.csv\" — 3 prompts processed."
 }
 ```
 
+**Supported prompt column names** (priority order): `prompt`, `query`, `question`, `text`, `input`, `message`, `content`, or the first string column.
+
+#### `POST /api/upload`
+Upload and index a file without running the prompt pipeline.
+
+```
+Content-Type: multipart/form-data
+Body: file=<.csv or .json file>
+
+Response:
+{ "success": true, "documentId": "uuid", "chunksCreated": 42, "message": "..." }
+```
+
 #### `POST /api/upload/text`
-Ingest plain text directly.
+Index plain text directly.
 
 ```json
 // Request
-{ "text": "Node.js is a JavaScript runtime...", "name": "my-note" }
+{ "text": "some content to index", "name": "my-note" }
 
 // Response
 { "success": true, "documentId": "uuid", "chunksCreated": 3, "message": "..." }
 ```
 
-#### `GET /api/documents`
-List all uploaded documents.
+#### `GET /api/upload` or `GET /api/documents`
+List all documents uploaded by the currently authenticated user.
 
 ```json
 {
   "success": true,
   "documents": [
-    { "id": "uuid", "name": "data.csv", "type": "csv", "created_at": "..." }
+    { "id": "uuid", "user_id": "uuid", "name": "data.csv", "type": "csv", "created_at": "..." }
   ]
 }
 ```
 
+---
+
 ### Chat
 
-#### `POST /api/chat`
-Send a message and get an agent response.
+All chat routes require authentication. Sessions and history are scoped to the authenticated user.
 
+#### `POST /api/chat`
 ```json
 // Request
 { "message": "Install Docker on Windows 11", "sessionId": "uuid" }
@@ -165,32 +196,31 @@ Send a message and get an agent response.
 // Response
 {
   "success": true,
-  "response": "## Installing Docker on Windows...",
+  "response": "## Installing Docker on Windows (PowerShell)...",
   "agentUsed": "Script Generator Agent",
-  "script": "# Install Docker Desktop...\nwinget install ...",
+  "script": "winget install --id Docker.DockerDesktop ...",
   "sessionId": "uuid",
   "software": "docker",
-  "os": "Windows (PowerShell / CMD)",
+  "os": "Windows (PowerShell)",
   "version": "26.1.3"
 }
 ```
 
 #### `GET /api/chat/history/:sessionId`
-Retrieve message history for a session.
+Returns only messages belonging to the authenticated user for that session.
 
 ```json
 {
   "success": true,
   "sessionId": "uuid",
   "history": [
-    { "id": "uuid", "session_id": "uuid", "role": "user", "content": "...", "agent_used": null, "created_at": "..." },
-    { "id": "uuid", "session_id": "uuid", "role": "assistant", "content": "...", "agent_used": "Script Generator Agent", "created_at": "..." }
+    { "id": "uuid", "user_id": "uuid", "session_id": "uuid", "role": "user", "content": "...", "agent_used": null, "created_at": "..." }
   ]
 }
 ```
 
 #### `GET /api/chat/sessions`
-List all chat sessions with summary metadata.
+List all sessions for the authenticated user only.
 
 ```json
 {
@@ -206,122 +236,129 @@ List all chat sessions with summary metadata.
 ## How the Agents Work
 
 ```
-User Message
-     │
-     ▼
-┌─────────────────────┐
-│   Intent Agent      │  Regex/keyword classification
-│  detectIntent()     │  → install_software / query_knowledge / general_chat
-└────────┬────────────┘
-         │
-    ┌────┴─────┐──────────────────┐
-    │          │                  │
-    ▼          ▼                  ▼
-Script     Knowledge          General
-Generator  Query Agent        Chat Agent
-Agent      (pgvector search)  (canned responses)
-    │
-    ├── Version Check Agent  (live API or static lookup)
-    └── Script Templates     (winget / brew / apt / dnf commands)
+User Message / Uploaded File
+          │
+          ▼
+  ┌───────────────────┐
+  │   Intent Agent    │  Regex + keyword classification
+  │  detectIntent()   │  → install_software / query_knowledge / general_chat
+  └────────┬──────────┘
+           │
+   ┌───────┼───────────────┐
+   ▼       ▼               ▼
+Script   Knowledge      General
+Generator  Query Agent  Chat Agent
+Agent    (vector search) (responses)
+   │
+   ├── Version Check Agent  (live API / static fallback)
+   └── Script Templates     (winget / brew / apt / dnf / rpm)
 ```
 
 ### Agent Routing Logic
 
-| Intent Detected | Trigger Condition | Agent Used |
-|----------------|-------------------|------------|
-| `install_software` | Message contains a known software name + install keywords | Script Generator Agent |
-| `query_knowledge` | Message contains search/query keywords | Knowledge Query Agent |
+| Intent | Trigger | Agent Used |
+|--------|---------|------------|
+| `install_software` | Known software name + install keyword | Script Generator Agent |
+| `query_knowledge` | Search/query keyword detected | Knowledge Query Agent |
 | `general_chat` | Everything else | General Chat Agent |
 
----
+### File Prompt Pipeline
 
-## Supported Software
+When a file is uploaded via `/api/upload/analyze`:
 
-| Software | Windows (winget) | macOS (brew) | Ubuntu/Debian (apt) | Fedora (dnf) |
-|----------|:---:|:---:|:---:|:---:|
-| Ubuntu / WSL | ✅ | ✅ | ✅ | ✅ |
-| Docker | ✅ | ✅ | ✅ | ✅ |
-| Node.js | ✅ | ✅ | ✅ | ✅ |
-| Python | ✅ | ✅ | ✅ | ✅ |
-| Git | ✅ | ✅ | ✅ | ✅ |
-| VSCode | ✅ | ✅ | ✅ | ✅ |
-| Google Chrome | ✅ | ✅ | ✅ | ✅ |
-| Firefox | ✅ | ✅ | ✅ | ✅ |
-| Zoom | ✅ | ✅ | ✅ | ✅ |
-| VLC | ✅ | ✅ | ✅ | ✅ |
-| 7-Zip | ✅ | ✅ | ✅ | ✅ |
-| Steam | ✅ | ✅ | ✅ | ✅ |
+1. Prompts are extracted from the file in order
+2. Each prompt is passed through `processMessage()` — the same pipeline as typed messages
+3. Results (including install scripts) are returned in sequence and saved to chat history
 
 ---
 
-## Example Chat Interactions
+## Supported Software (70+)
 
-### Install Script Generation
+Scripts are available for all 4 platforms: Windows (winget/Scoop), macOS (Homebrew), Ubuntu/Debian (apt), Fedora/RHEL (dnf).
 
-**User:** `I want to install Docker on my Windows 11 machine`
+| Category | Tools |
+|----------|-------|
+| Containers & VMs | Docker, Kubernetes/kubectl/minikube, Vagrant, VirtualBox, Podman |
+| Languages | Node.js, Python, Java (OpenJDK 21), Go, Rust, Ruby, PHP, .NET 8, Scala, Kotlin, R |
+| Version Control | Git |
+| Editors & IDEs | VSCode, Vim/Neovim, Sublime Text, IntelliJ IDEA, PyCharm |
+| Databases | PostgreSQL, MySQL, MongoDB, Redis, SQLite, MariaDB, Elasticsearch |
+| Web Servers | Nginx, Apache, Caddy |
+| Build Tools | CMake, Maven, Gradle |
+| Cloud CLIs | AWS CLI, Google Cloud SDK, Azure CLI, Terraform, Ansible |
+| Browsers | Chrome, Firefox, Brave, Opera |
+| Communication | Zoom, Slack, Discord, Teams, Telegram, Signal, Notion, Obsidian |
+| Media & Utilities | VLC, 7-Zip, FFmpeg, GIMP, Inkscape, Steam, Spotify, OBS Studio |
+| System Tools | curl, wget, htop, neofetch, nmap, Wireshark, OpenSSH, UFW, fail2ban, Certbot |
+| WSL / Ubuntu | WSL 2, Ubuntu on Windows |
 
-**Bot:** Detects intent=`install_software`, software=`docker`, os=`windows`, returns latest version info and a "View Install Script" button showing:
-```powershell
-winget install --id Docker.DockerDesktop --source winget --accept-package-agreements --accept-source-agreements
-docker --version
-docker run hello-world
+---
+
+## Database Schema
+
+Tables are created automatically on startup. No manual migration needed.
+
+```
+users           — id, name, email, password_hash, created_at
+documents       — id, user_id, name, type, created_at
+chunks          — id, document_id, content, embedding (FLOAT8[]), metadata, created_at
+chat_history    — id, user_id, session_id, role, content, agent_used, created_at
 ```
 
----
-
-**User:** `how do I get Python on linux ubuntu`
-
-**Bot:** Detects intent=`install_software`, software=`python`, os=`linux`, distro=`ubuntu`, shows apt-get install commands with deadsnakes PPA.
-
----
-
-**User:** `install homebrew and node on mac`
-
-**Bot:** Detects intent=`install_software`, software=`nodejs`, os=`macos`, shows Homebrew + nvm install commands.
-
----
-
-### Document Q&A
-
-1. Upload a CSV file via the sidebar (e.g., a product catalog)
-2. Ask: `What products are available under $50?`
-3. Bot retrieves semantically similar chunks and returns relevant rows from your data
+Embeddings are stored as `FLOAT8[]` arrays (384 dimensions from `Xenova/all-MiniLM-L6-v2`) — no pgvector extension required.
 
 ---
 
 ## Project Structure
 
 ```
-multiagent-chatbot/
+instaboot/
 ├── backend/
 │   ├── src/
-│   │   ├── agents/           # Intent, VersionCheck, ScriptGenerator agents
-│   │   ├── config/           # PostgreSQL pool + initDB
-│   │   ├── models/           # Document, Chunk, ChatHistory DB models
-│   │   ├── pipeline/         # Chunker, Embedder, VectorStore
-│   │   ├── routes/           # Express routes (upload, chat)
-│   │   └── utils/            # File parser, script templates
-│   └── migrations/init.sql
+│   │   ├── agents/           # intentAgent, scriptGeneratorAgent, versionCheckAgent, fileAnalysisAgent
+│   │   ├── config/           # db.js — PostgreSQL pool + initDB()
+│   │   ├── context/          # (frontend) AuthContext
+│   │   ├── middleware/        # auth.js — JWT requireAuth middleware
+│   │   ├── models/           # Document.js, Chunk.js, ChatHistory.js
+│   │   ├── pipeline/         # chunker.js, embedder.js, vectorStore.js
+│   │   ├── routes/           # auth.js, chat.js, upload.js
+│   │   └── utils/            # fileParser.js, scriptTemplates.js, groqClient.js
+│   ├── migrations/           # init.sql (reference only — app uses initDB())
+│   ├── .env.example
+│   ├── package.json
+│   └── requirements.txt      # Python deps for legacy app.py (not used by Node server)
 ├── frontend/
 │   └── src/
-│       ├── api/              # Axios client
+│       ├── api/              # client.js — axios instance + all API functions
 │       ├── components/       # ChatWindow, MessageBubble, Sidebar, FileUpload, ScriptModal
-│       └── hooks/            # useChat
-└── docker-compose.yml
+│       │                     # LoginPage, RegisterPage
+│       ├── context/          # AuthContext.js
+│       └── hooks/            # useChat.js, useAuth.js (legacy)
+├── docker-compose.yml        # Note: Docker config targets the Python backend — needs update for Node
+└── README.md
 ```
 
 ---
 
 ## Troubleshooting
 
-**"Error: relation 'chunks' does not exist"**
-The pgvector extension may not be installed. Run `CREATE EXTENSION vector;` in your database, or use the Docker Compose setup which installs it automatically.
+**Login returns 404**
+The backend server is not running. Start it with `npm run dev` in the `backend/` folder.
+
+**"JWT_SECRET is not set" error**
+Copy `backend/.env.example` to `backend/.env` and set a value for `JWT_SECRET`.
+
+**Chat responses fail with "GROQ_API_KEY is not set"**
+Add your Groq API key to `backend/.env`. Get a free key at [console.groq.com](https://console.groq.com).
 
 **First message is slow**
-The first request triggers the embedding model download (~90 MB). Subsequent requests use the cached model.
+The embedding model (`Xenova/all-MiniLM-L6-v2`, ~23 MB quantized) is downloaded on first use via `@xenova/transformers`. Subsequent requests use the cached model.
 
-**Embeddings fail with dimension mismatch**
-Make sure your `EMBEDDING_MODEL` env var hasn't changed after data was already stored. The model produces 384-dimensional vectors; the schema is hard-coded to `vector(384)`.
+**Cannot connect to PostgreSQL**
+Ensure PostgreSQL is running (`net start postgresql-x64-17` on Windows) and that `DATABASE_URL` in `backend/.env` matches your credentials.
 
 **CORS errors in browser**
-Make sure `CORS_ORIGIN` in the backend `.env` matches your frontend URL exactly (including port).
+Make sure `CORS_ORIGIN` in `backend/.env` exactly matches the frontend URL including port (default: `http://localhost:3000`).
+
+**Documents showing from other users**
+Restart the backend — this applies the `ALTER TABLE documents ADD COLUMN IF NOT EXISTS user_id` migration that scopes documents per user.

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Bot, FileText, Database, Clock, RefreshCw,
+  Zap, FileText, Database, Clock, RefreshCw,
   ChevronDown, ChevronRight, MessageSquare, LogOut, User, Plus,
 } from 'lucide-react';
 import { getDocuments, getSessions } from '../api/client';
@@ -15,133 +15,86 @@ function timeAgo(isoString) {
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `${hrs}h ago`;
     return `${Math.floor(hrs / 24)}d ago`;
-  } catch {
-    return '';
-  }
+  } catch { return ''; }
 }
 
-/**
- * Sidebar – shows app title, document list, file upload, and session history.
- *
- * Props:
- *  - sessionId        : current session UUID
- *  - onNewSession     : () => void
- *  - onSelectSession  : (sessionId: string) => void   — switch to an existing session
- *  - onAnalysisComplete : ({ userMessage, analysis, agentUsed }) => void
- *  - user             : { name, email } | null
- *  - onLogout         : () => void
- */
 export default function Sidebar({ sessionId, onNewSession, onSelectSession, onAnalysisComplete, user, onLogout }) {
-  const [documents, setDocuments]     = useState([]);
-  const [sessions, setSessions]       = useState([]);
-  const [docsOpen, setDocsOpen]       = useState(true);
-  const [sessionsOpen, setSessionsOpen] = useState(true);
-  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [documents, setDocuments]           = useState([]);
+  const [sessions, setSessions]             = useState([]);
+  const [docsOpen, setDocsOpen]             = useState(true);
+  const [sessionsOpen, setSessionsOpen]     = useState(true);
+  const [loadingDocs, setLoadingDocs]       = useState(false);
   const [loadingSessions, setLoadingSessions] = useState(false);
 
   const loadDocuments = useCallback(async () => {
     setLoadingDocs(true);
-    try {
-      const data = await getDocuments();
-      setDocuments(data.documents || []);
-    } catch {
-      // Silently fail – backend might not be ready yet
-    } finally {
-      setLoadingDocs(false);
-    }
+    try { const d = await getDocuments(); setDocuments(d.documents || []); }
+    catch {} finally { setLoadingDocs(false); }
   }, []);
 
   const loadSessions = useCallback(async () => {
     setLoadingSessions(true);
-    try {
-      const data = await getSessions();
-      setSessions(data.sessions || []);
-    } catch {
-      // Silently fail
-    } finally {
-      setLoadingSessions(false);
-    }
+    try { const d = await getSessions(); setSessions(d.sessions || []); }
+    catch {} finally { setLoadingSessions(false); }
   }, []);
 
-  // Initial load + refresh every 15 seconds
   useEffect(() => {
-    loadDocuments();
-    loadSessions();
-    const interval = setInterval(() => {
-      loadDocuments();
-      loadSessions();
-    }, 15000);
-    return () => clearInterval(interval);
+    loadDocuments(); loadSessions();
+    const t = setInterval(() => { loadDocuments(); loadSessions(); }, 15000);
+    return () => clearInterval(t);
   }, [loadDocuments, loadSessions]);
 
-  // Refresh sessions whenever the active sessionId changes
-  // (covers both new session and switching sessions)
-  useEffect(() => {
-    loadSessions();
-  }, [sessionId, loadSessions]);
+  useEffect(() => { loadSessions(); }, [sessionId, loadSessions]);
 
-  const handleUploadComplete = () => loadDocuments();
+  const getDocIcon = (type) =>
+    ({ csv: '📊', json: '📋', chat: '💬' }[type] || '📄');
 
-  const handleSelectSession = (sid) => {
-    if (sid === sessionId) return; // already active
-    if (onSelectSession) onSelectSession(sid);
-  };
-
-  const getDocIcon = (type) => {
-    switch (type) {
-      case 'csv':  return '📊';
-      case 'json': return '📋';
-      case 'chat': return '💬';
-      default:     return '📄';
-    }
-  };
+  // ── accordion header style ──────────────────────────────────────────────────
+  const accordionBtn =
+    'w-full flex items-center justify-between px-2 py-1.5 rounded-lg transition-colors ' +
+    'text-[#6e6b88] hover:text-[#b8b5d0] hover:bg-[#1c1c22]';
 
   return (
-    <aside className="flex flex-col h-full bg-gray-900 border-r border-gray-800 overflow-hidden">
+    <aside className="flex flex-col h-full border-r overflow-hidden"
+           style={{ background: '#13131a', borderColor: '#1e1e28' }}>
 
-      {/* ── Logo / Title ── */}
-      <div className="px-5 py-5 border-b border-gray-800 flex-shrink-0">
+      {/* ── Logo ── */}
+      <div className="px-5 py-5 border-b flex-shrink-0" style={{ borderColor: '#1e1e28' }}>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-900/40">
-            <Bot size={20} className="text-white" />
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-[0_0_18px_rgba(124,58,237,0.4)]"
+               style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)' }}>
+            <Zap size={18} className="text-white" />
           </div>
           <div>
-            <h1 className="text-white font-bold text-base leading-tight">Instaboot</h1>
-            <p className="text-gray-500 text-xs">AI Assistant</p>
+            <h1 className="font-bold text-base leading-tight" style={{ color: '#f0eeff' }}>Instaboot</h1>
+            <p className="text-xs" style={{ color: '#6e6b88' }}>AI Assistant</p>
           </div>
         </div>
       </div>
 
-      {/* ── Upload section ── */}
+      {/* ── Upload ── */}
       <div className="px-4 pt-4 pb-2 flex-shrink-0">
-        <p className="text-gray-500 text-xs font-medium uppercase tracking-wider mb-2 px-1">
+        <p className="text-xs font-semibold uppercase tracking-widest mb-2 px-1" style={{ color: '#6e6b88' }}>
           Upload Data
         </p>
-        <FileUpload
-          sessionId={sessionId}
-          onUploadComplete={handleUploadComplete}
-          onAnalysisComplete={onAnalysisComplete}
-        />
+        <FileUpload sessionId={sessionId} onUploadComplete={loadDocuments} onAnalysisComplete={onAnalysisComplete} />
       </div>
 
-      {/* ── Scrollable content area ── */}
+      {/* ── Scrollable ── */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-1">
 
-        {/* ── Documents accordion ── */}
-        <div className="mt-2">
-          <button
-            onClick={() => setDocsOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-2 py-1.5 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800/50 transition-colors"
-          >
+        {/* Documents */}
+        <div className="mt-3">
+          <button onClick={() => setDocsOpen(v => !v)} className={accordionBtn}>
             <div className="flex items-center gap-2">
-              <Database size={14} />
-              <span className="text-xs font-medium uppercase tracking-wider">Documents</span>
-              <span className="bg-gray-700 text-gray-400 text-xs px-1.5 py-0.5 rounded-full">
+              <Database size={13} />
+              <span className="text-xs font-semibold uppercase tracking-wider">Documents</span>
+              <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: '#1c1c22', color: '#6e6b88' }}>
                 {documents.length}
               </span>
             </div>
             <div className="flex items-center gap-1">
-              {loadingDocs && <RefreshCw size={11} className="animate-spin text-gray-600" />}
+              {loadingDocs && <RefreshCw size={11} className="animate-spin opacity-50" />}
               {docsOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
             </div>
           </button>
@@ -149,48 +102,40 @@ export default function Sidebar({ sessionId, onNewSession, onSelectSession, onAn
           {docsOpen && (
             <div className="mt-1 space-y-0.5">
               {documents.length === 0 ? (
-                <div className="px-3 py-3 text-center">
-                  <FileText size={18} className="text-gray-700 mx-auto mb-1" />
-                  <p className="text-gray-600 text-xs">No documents yet</p>
-                  <p className="text-gray-700 text-xs">Upload a CSV or JSON file above</p>
+                <div className="px-3 py-4 text-center">
+                  <FileText size={18} className="mx-auto mb-1.5 opacity-20" style={{ color: '#6e6b88' }} />
+                  <p className="text-xs" style={{ color: '#3d3a52' }}>No documents yet</p>
                 </div>
-              ) : (
-                documents.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-800/50 transition-colors"
-                    title={doc.name}
-                  >
-                    <span className="text-sm flex-shrink-0">{getDocIcon(doc.type)}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-gray-300 text-xs font-medium truncate">{doc.name}</p>
-                      <p className="text-gray-600 text-xs">{timeAgo(doc.created_at)}</p>
-                    </div>
-                    <span className="text-gray-700 text-xs uppercase flex-shrink-0">{doc.type}</span>
+              ) : documents.map(doc => (
+                <div key={doc.id}
+                     className="flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors hover:bg-[#1c1c22]"
+                     title={doc.name}>
+                  <span className="text-sm flex-shrink-0">{getDocIcon(doc.type)}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium truncate" style={{ color: '#b8b5d0' }}>{doc.name}</p>
+                    <p className="text-xs" style={{ color: '#3d3a52' }}>{timeAgo(doc.created_at)}</p>
                   </div>
-                ))
-              )}
+                  <span className="text-xs uppercase flex-shrink-0" style={{ color: '#3d3a52' }}>{doc.type}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        {/* ── History accordion ── */}
+        {/* History */}
         <div className="mt-2">
-          <button
-            onClick={() => setSessionsOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-2 py-1.5 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-gray-800/50 transition-colors"
-          >
+          <button onClick={() => setSessionsOpen(v => !v)} className={accordionBtn}>
             <div className="flex items-center gap-2">
-              <Clock size={14} />
-              <span className="text-xs font-medium uppercase tracking-wider">History</span>
+              <Clock size={13} />
+              <span className="text-xs font-semibold uppercase tracking-wider">History</span>
               {sessions.length > 0 && (
-                <span className="bg-gray-700 text-gray-400 text-xs px-1.5 py-0.5 rounded-full">
+                <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: '#1c1c22', color: '#6e6b88' }}>
                   {sessions.length}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-1">
-              {loadingSessions && <RefreshCw size={11} className="animate-spin text-gray-600" />}
+              {loadingSessions && <RefreshCw size={11} className="animate-spin opacity-50" />}
               {sessionsOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
             </div>
           </button>
@@ -198,81 +143,66 @@ export default function Sidebar({ sessionId, onNewSession, onSelectSession, onAn
           {sessionsOpen && (
             <div className="mt-1 space-y-0.5">
               {sessions.length === 0 ? (
-                <div className="px-3 py-3 text-center">
-                  <MessageSquare size={18} className="text-gray-700 mx-auto mb-1" />
-                  <p className="text-gray-600 text-xs">No history yet</p>
-                  <p className="text-gray-700 text-xs">Start chatting to see sessions here</p>
+                <div className="px-3 py-4 text-center">
+                  <MessageSquare size={18} className="mx-auto mb-1.5 opacity-20" style={{ color: '#6e6b88' }} />
+                  <p className="text-xs" style={{ color: '#3d3a52' }}>No history yet</p>
                 </div>
-              ) : (
-                sessions.slice(0, 20).map((s) => {
-                  const isActive = s.session_id === sessionId;
-                  return (
-                    <button
-                      key={s.session_id}
-                      onClick={() => handleSelectSession(s.session_id)}
-                      className={`w-full text-left px-2 py-2 rounded-lg transition-colors ${
-                        isActive
-                          ? 'bg-blue-900/40 border border-blue-700/40'
-                          : 'hover:bg-gray-800/60 border border-transparent'
-                      }`}
-                      title={s.first_message || 'Empty session'}
-                    >
-                      <div className="flex items-center gap-2">
-                        <MessageSquare
-                          size={11}
-                          className={`flex-shrink-0 ${isActive ? 'text-blue-400' : 'text-gray-600'}`}
-                        />
-                        <p className={`text-xs truncate flex-1 ${isActive ? 'text-blue-200' : 'text-gray-300'}`}>
-                          {s.first_message
-                            ? s.first_message.length > 35
-                              ? s.first_message.slice(0, 35) + '…'
-                              : s.first_message
-                            : 'Empty session'}
-                        </p>
-                        {isActive && (
-                          <span className="text-xs text-blue-500 flex-shrink-0">●</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5 pl-[19px]">
-                        <span className="text-gray-600 text-xs">{s.message_count} msgs</span>
-                        <span className="text-gray-700 text-xs">·</span>
-                        <span className="text-gray-600 text-xs">{timeAgo(s.last_message_at)}</span>
-                      </div>
-                    </button>
-                  );
-                })
-              )}
+              ) : sessions.slice(0, 20).map(s => {
+                const active = s.session_id === sessionId;
+                return (
+                  <button key={s.session_id}
+                    onClick={() => !active && onSelectSession && onSelectSession(s.session_id)}
+                    className="w-full text-left px-2 py-2 rounded-lg transition-colors"
+                    style={{
+                      background: active ? 'rgba(124,58,237,0.12)' : 'transparent',
+                      border: active ? '1px solid rgba(124,58,237,0.3)' : '1px solid transparent',
+                    }}
+                    title={s.first_message || 'Empty session'}>
+                    <div className="flex items-center gap-2">
+                      <MessageSquare size={11} className="flex-shrink-0"
+                        style={{ color: active ? '#a78bfa' : '#3d3a52' }} />
+                      <p className="text-xs truncate flex-1"
+                         style={{ color: active ? '#c4b5fd' : '#b8b5d0' }}>
+                        {s.first_message
+                          ? s.first_message.length > 34 ? s.first_message.slice(0, 34) + '…' : s.first_message
+                          : 'Empty session'}
+                      </p>
+                      {active && <span style={{ color: '#7c3aed', fontSize: 8 }}>●</span>}
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-0.5 pl-[19px]">
+                      <span className="text-xs" style={{ color: '#3d3a52' }}>{s.message_count} msgs</span>
+                      <span style={{ color: '#3d3a52', fontSize: 10 }}>·</span>
+                      <span className="text-xs" style={{ color: '#3d3a52' }}>{timeAgo(s.last_message_at)}</span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Footer: New Chat + User info ── */}
-      <div className="px-4 py-4 border-t border-gray-800 flex-shrink-0 space-y-3">
-        <button
-          onClick={onNewSession}
-          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors shadow-lg shadow-blue-900/30"
-        >
+      {/* ── Footer ── */}
+      <div className="px-4 py-4 border-t flex-shrink-0 space-y-3" style={{ borderColor: '#1e1e28' }}>
+        <button onClick={onNewSession}
+          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white transition-all btn-primary">
           <Plus size={15} />
           New Chat
         </button>
 
-        {/* User info + logout */}
         {user && (
           <div className="flex items-center gap-2 px-1">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center flex-shrink-0">
+            <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                 style={{ background: 'linear-gradient(135deg, #7c3aed, #06b6d4)' }}>
               <User size={13} className="text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-gray-200 text-xs font-medium truncate">{user.name}</p>
-              <p className="text-gray-500 text-xs truncate">{user.email}</p>
+              <p className="text-xs font-medium truncate" style={{ color: '#b8b5d0' }}>{user.name}</p>
+              <p className="text-xs truncate" style={{ color: '#3d3a52' }}>{user.email}</p>
             </div>
-            <button
-              onClick={onLogout}
-              title="Sign out"
-              className="text-gray-500 hover:text-red-400 transition-colors flex-shrink-0"
-              aria-label="Sign out"
-            >
+            <button onClick={onLogout} title="Sign out" aria-label="Sign out"
+              className="flex-shrink-0 transition-colors hover:text-red-400"
+              style={{ color: '#3d3a52' }}>
               <LogOut size={15} />
             </button>
           </div>

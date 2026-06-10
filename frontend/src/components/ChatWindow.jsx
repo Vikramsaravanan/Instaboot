@@ -1,45 +1,38 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Send, Bot, Zap } from 'lucide-react';
+import { Send, Zap, Plus } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 
 const EXAMPLE_PROMPTS = [
   'Install Docker on Windows 11',
   'How do I get Python on macOS?',
-  'I want to install VSCode on Ubuntu',
-  'Install Node.js on Fedora Linux',
-  'How to set up Git on Windows?',
+  'Install VSCode on Ubuntu',
+  'Install Node.js on Fedora',
+  'Set up Git on Windows',
+  'Install PostgreSQL on Linux',
 ];
 
 function LoadingDots() {
   return (
-    <div className="flex gap-3 px-4 py-2">
-      <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 mt-1">
-        <Bot size={16} className="text-gray-300" />
+    <div className="flex gap-3 px-6 py-3">
+      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+           style={{ background: '#1c1c22', border: '1px solid #2a2a35' }}>
+        <Zap size={14} style={{ color: '#7c3aed' }} />
       </div>
-      <div className="bg-gray-800 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5">
-        <span className="typing-dot w-2 h-2 bg-gray-400 rounded-full inline-block" />
-        <span className="typing-dot w-2 h-2 bg-gray-400 rounded-full inline-block" />
-        <span className="typing-dot w-2 h-2 bg-gray-400 rounded-full inline-block" />
+      <div className="rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5"
+           style={{ background: '#1c1c22', border: '1px solid #2a2a35' }}>
+        <span className="typing-dot w-2 h-2 rounded-full inline-block" style={{ background: '#7c3aed' }} />
+        <span className="typing-dot w-2 h-2 rounded-full inline-block" style={{ background: '#7c3aed' }} />
+        <span className="typing-dot w-2 h-2 rounded-full inline-block" style={{ background: '#7c3aed' }} />
       </div>
     </div>
   );
 }
 
-/**
- * ChatWindow – the main chat interface.
- *
- * Props:
- *  - messages   : message array from useChat
- *  - isLoading  : bool
- *  - onSend     : (text: string) => void
- *  - onNewChat  : () => void
- */
 export default function ChatWindow({ messages, isLoading, onSend, onNewChat }) {
   const [input, setInput] = useState('');
-  const bottomRef = useRef(null);
+  const bottomRef   = useRef(null);
   const textareaRef = useRef(null);
 
-  // Auto-scroll to latest message
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
@@ -49,22 +42,15 @@ export default function ChatWindow({ messages, isLoading, onSend, onNewChat }) {
     if (!text || isLoading) return;
     onSend(text);
     setInput('');
-    // Reset textarea height
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
   }, [input, isLoading, onSend]);
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      submit();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
   };
 
-  const handleTextareaChange = (e) => {
+  const handleChange = (e) => {
     setInput(e.target.value);
-    // Auto-resize textarea
     const ta = e.target;
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight, 180) + 'px';
@@ -73,54 +59,66 @@ export default function ChatWindow({ messages, isLoading, onSend, onNewChat }) {
   const isEmpty = messages.length === 0 && !isLoading;
 
   return (
-    <div className="flex flex-col h-full bg-gray-950">
+    <div className="flex flex-col h-full" style={{ background: '#0e0e11' }}>
 
-      {/* ── Header ── */}
-      <header className="flex items-center justify-between px-6 py-3.5 border-b border-gray-800 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" aria-hidden="true" />
-          <h2 className="text-white font-semibold text-sm">Assistant</h2>
-          <span className="text-gray-600 text-xs hidden sm:inline">
-            · Install scripts &amp; document Q&amp;A
-          </span>
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 py-3.5 border-b flex-shrink-0"
+              style={{ borderColor: '#1e1e28', background: '#0e0e11' }}>
+        <div className="flex items-center gap-2.5">
+          <span className="w-2 h-2 rounded-full" style={{ background: '#22d3ee', boxShadow: '0 0 6px #22d3ee' }} />
+          <span className="font-semibold text-sm" style={{ color: '#f0eeff' }}>Assistant</span>
+          <span className="text-xs hidden sm:inline" style={{ color: '#3d3a52' }}>· scripts &amp; document Q&amp;A</span>
         </div>
-        <button
-          onClick={onNewChat}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-white bg-gray-800/50 hover:bg-gray-700 rounded-lg transition-colors border border-gray-700/50"
-        >
-          <Zap size={12} />
+        <button onClick={onNewChat}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors border"
+          style={{ color: '#6e6b88', background: '#16161a', borderColor: '#2a2a35' }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#f0eeff'; e.currentTarget.style.borderColor = '#3d3a52'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = '#6e6b88'; e.currentTarget.style.borderColor = '#2a2a35'; }}>
+          <Plus size={12} />
           New Chat
         </button>
       </header>
 
-      {/* ── Message list ── */}
-      <main className="flex-1 overflow-y-auto py-4 scroll-smooth" aria-label="Chat messages">
+      {/* Messages */}
+      <main className="flex-1 overflow-y-auto py-6" aria-label="Chat messages">
         {isEmpty ? (
-          /* Welcome screen */
           <div className="flex flex-col items-center justify-center h-full px-8 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center mb-5 shadow-2xl shadow-blue-900/50">
-              <Bot size={30} className="text-white" />
+            {/* Hero icon */}
+            <div className="w-18 h-18 rounded-3xl flex items-center justify-center mb-6"
+                 style={{
+                   width: 72, height: 72,
+                   background: 'linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)',
+                   boxShadow: '0 0 40px rgba(124,58,237,0.4)',
+                 }}>
+              <Zap size={32} className="text-white" />
             </div>
-            <h3 className="text-white text-xl font-bold mb-2">Instaboot</h3>
-            <p className="text-gray-400 text-sm max-w-md mb-8 leading-relaxed">
-              Generate install scripts for Windows, macOS, and Linux, or ask questions about your uploaded documents.
+            <h3 className="text-2xl font-bold mb-2" style={{ color: '#f0eeff' }}>Instaboot</h3>
+            <p className="text-sm max-w-sm mb-10 leading-relaxed" style={{ color: '#6e6b88' }}>
+              Generate install scripts for any OS, run prompt pipelines from files, or ask questions about your data.
             </p>
 
             {/* Example prompts */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
-              {EXAMPLE_PROMPTS.map((prompt) => (
-                <button
-                  key={prompt}
-                  onClick={() => onSend(prompt)}
-                  className="text-left px-4 py-3 bg-gray-800/60 hover:bg-gray-800 border border-gray-700/50 hover:border-gray-600 rounded-xl text-gray-300 hover:text-white text-sm transition-all duration-200"
-                >
-                  {prompt}
+              {EXAMPLE_PROMPTS.map(p => (
+                <button key={p} onClick={() => onSend(p)}
+                  className="text-left px-4 py-3 rounded-xl text-sm transition-all duration-150 border"
+                  style={{ background: '#16161a', borderColor: '#2a2a35', color: '#b8b5d0' }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderColor = '#7c3aed';
+                    e.currentTarget.style.color = '#f0eeff';
+                    e.currentTarget.style.background = '#1c1c22';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderColor = '#2a2a35';
+                    e.currentTarget.style.color = '#b8b5d0';
+                    e.currentTarget.style.background = '#16161a';
+                  }}>
+                  {p}
                 </button>
               ))}
             </div>
           </div>
         ) : (
-          /* Message bubbles */
           <div className="space-y-0.5">
             {messages.map((msg, idx) => {
               const isLast = idx === messages.length - 1;
@@ -130,13 +128,13 @@ export default function ChatWindow({ messages, isLoading, onSend, onNewChat }) {
                   <MessageBubble message={msg} />
                   {hasReplies && (
                     <div className="flex flex-wrap gap-2 px-14 pb-2">
-                      {msg.quickReplies.map((reply) => (
-                        <button
-                          key={reply}
-                          onClick={() => onSend(reply)}
-                          className="px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-blue-600 text-gray-300 hover:text-white border border-gray-600 hover:border-blue-500 rounded-full transition-all duration-200"
-                        >
-                          {reply}
+                      {msg.quickReplies.map(r => (
+                        <button key={r} onClick={() => onSend(r)}
+                          className="px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-150 border"
+                          style={{ background: '#1c1c22', borderColor: '#2a2a35', color: '#b8b5d0' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#7c3aed'; e.currentTarget.style.color = '#fff'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = '#1c1c22'; e.currentTarget.style.color = '#b8b5d0'; }}>
+                          {r}
                         </button>
                       ))}
                     </div>
@@ -147,37 +145,35 @@ export default function ChatWindow({ messages, isLoading, onSend, onNewChat }) {
             {isLoading && <LoadingDots />}
           </div>
         )}
-        <div ref={bottomRef} aria-hidden="true" />
+        <div ref={bottomRef} />
       </main>
 
-      {/* ── Input area ── */}
-      <footer className="flex-shrink-0 px-4 py-4 border-t border-gray-800">
-        <div className="flex items-end gap-3 bg-gray-800 border border-gray-700 rounded-2xl px-4 py-3 focus-within:border-blue-600/60 transition-colors">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={handleTextareaChange}
-            onKeyDown={handleKeyDown}
-            placeholder='Ask about software installs or your documents… (Enter to send, Shift+Enter for newline)'
-            rows={1}
-            className="flex-1 bg-transparent text-gray-100 placeholder-gray-500 text-sm resize-none outline-none leading-relaxed min-h-[24px]"
-            disabled={isLoading}
-            aria-label="Chat input"
+      {/* Input */}
+      <footer className="flex-shrink-0 px-5 py-4 border-t" style={{ borderColor: '#1e1e28' }}>
+        <div className="flex items-end gap-3 rounded-2xl px-4 py-3 transition-all duration-200 border"
+             style={{ background: '#16161a', borderColor: '#2a2a35' }}
+             onFocusCapture={e => e.currentTarget.style.borderColor = 'rgba(124,58,237,0.5)'}
+             onBlurCapture={e => e.currentTarget.style.borderColor = '#2a2a35'}>
+          <textarea ref={textareaRef} value={input} onChange={handleChange} onKeyDown={handleKeyDown}
+            placeholder="Ask about installs or your documents… (Enter to send)"
+            rows={1} disabled={isLoading} aria-label="Chat input"
+            className="flex-1 bg-transparent text-sm resize-none outline-none leading-relaxed"
+            style={{ color: '#f0eeff', minHeight: 24, caretColor: '#7c3aed' }}
           />
-          <button
-            onClick={submit}
-            disabled={!input.trim() || isLoading}
-            className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
-              input.trim() && !isLoading
-                ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/40'
-                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-            }`}
-            aria-label="Send message"
-          >
-            <Send size={16} />
+          <button onClick={submit} disabled={!input.trim() || isLoading} aria-label="Send"
+            className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200"
+            style={{
+              background: input.trim() && !isLoading
+                ? 'linear-gradient(135deg,#7c3aed,#6d28d9)'
+                : '#1c1c22',
+              color: input.trim() && !isLoading ? '#fff' : '#3d3a52',
+              boxShadow: input.trim() && !isLoading ? '0 0 16px rgba(124,58,237,0.4)' : 'none',
+              cursor: !input.trim() || isLoading ? 'not-allowed' : 'pointer',
+            }}>
+            <Send size={15} />
           </button>
         </div>
-        <p className="text-center text-gray-700 text-xs mt-2">
+        <p className="text-center text-xs mt-2" style={{ color: '#3d3a52' }}>
           Shift+Enter for new line · Enter to send
         </p>
       </footer>
